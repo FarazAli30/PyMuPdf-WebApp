@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pyodide PDF Processor with OCR</title>
+    <!-- Pyodide -->
+    <script async src="./lib/pyodide/pyodide.js"></script>
+    <!-- Tesseract.js for OCR -->
+    <script src="./lib/tesseract/tesseract.min.js"></script>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Text:wght@400;600;700&family=Lato:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="header-content">
+            <div class="header-icon">📄</div>
+            <h1>PDF Processor</h1>
+            <p>Powerful PDF operations running entirely in your browser using Pyodide WebAssembly. Extract text, convert to images, merge, split, compress, and more—all without uploading to a server.</p>
+            <div class="status" id="status">
+                <div class="spinner"></div>
+                <span>Initializing Pyodide...</span>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Upload Section (Main) -->
+        <div class="card upload-section" id="mainUploadSection">
+            <h2>Select PDF Files</h2>
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📤</div>
+                <p class="primary">Drop PDF files here</p>
+                <p class="secondary">or click to browse</p>
+            </div>
+            <input type="file" id="fileInput" accept=".pdf" multiple>
+            <div class="file-list" id="fileList"></div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Progress Bar -->
+            <div class="progress-container" id="progressContainer">
+                <div class="progress-label">
+                    <span>Processing...</span>
+                    <span id="progressPercent">0%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+            </div>
+
+            <!-- Tabs Grid -->
+            <div class="tabs-container">
+                <div class="tabs">
+                    <div class="tab-button active" data-tab="extract">
+                        <span class="tab-icon">📄</span>
+                        <span class="tab-label">Extract Text</span>
+                    </div>
+                    <div class="tab-button" data-tab="images">
+                        <span class="tab-icon">🖼️</span>
+                        <span class="tab-label">Pdf to Images</span>
+                    </div>
+                    <div class="tab-button" data-tab="compress">
+                        <span class="tab-icon">🗜️</span>
+                        <span class="tab-label">Compress Pdf</span>
+                    </div>
+                    <div class="tab-button" data-tab="merge">
+                        <span class="tab-icon">🔗</span>
+                        <span class="tab-label">Merge Pdf(s)</span>
+                    </div>
+                    <div class="tab-button" data-tab="split">
+                        <span class="tab-icon">✂️</span>
+                        <span class="tab-label">Split Pdf</span>
+                    </div>
+                    <div class="tab-button" data-tab="organize">
+                        <span class="tab-icon">📑</span>
+                        <span class="tab-label">Organize Pages</span>
+                    </div>
+                    <div class="tab-button" data-tab="security">
+                        <span class="tab-icon">🔒</span>
+                        <span class="tab-label">Security</span>
+                    </div>
+                    <div class="tab-button" data-tab="edit">
+                        <span class="tab-icon">📝</span>
+                        <span class="tab-label">Edit PDF</span>
+                    </div>
+                    <div class="tab-button" data-tab="ocr">
+                        <span class="tab-icon">🔍</span>
+                        <span class="tab-label">OCR (Scanned)</span>
+                    </div>
+                    <div class="tab-button" data-tab="img2pdf">
+                        <span class="tab-icon">📷</span>
+                        <span class="tab-label">Images to PDF</span>
+                    </div>
+                    <div class="tab-button" data-tab="number">
+                        <span class="tab-icon">🔢</span>
+                        <span class="tab-label">Add Numbers to Pdf</span>
+                    </div>
+                    <div class="tab-button" data-tab="sign">
+                        <span class="tab-icon">✍️</span>
+                        <span class="tab-label">Sign PDF</span>
+                    </div>
+                    <div class="tab-button" data-tab="watermark">
+                        <span class="tab-icon">💧</span>
+                        <span class="tab-label">Watermark</span>
+                    </div>
+                    <div class="tab-button" data-tab="metadata">
+                        <span class="tab-icon">ℹ️</span>
+                        <span class="tab-label">Pdf Info</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Contents (keep all the tab content from your original file here) -->
+            <!-- Extract Tab -->
+            <div class="tab-content active" id="extract-tab">
+                <div class="card">
+                    <h3>Extract Text</h3>
+                    <p>Extract all text content from your PDF file.</p>
+                    <button class="btn btn-primary" id="extractBtn">Extract Text</button>
+                    <div class="output-section" id="extractOutput">
+                        <div class="output-header">
+                            <h3>Extracted Text</h3>
+                            <button class="btn btn-small btn-secondary" id="downloadTextBtn">📥 Download</button>
+                        </div>
+                        <div class="text-output" id="textOutput"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Images Tab -->
+            <div class="tab-content" id="images-tab">
+                <div class="card">
+                    <h3>Convert to Images</h3>
+                    <p>Convert each page of your PDF to a PNG image.</p>
+                    <button class="btn btn-primary" id="convertBtn">Convert to Images</button>
+                    <div class="output-section" id="imagesOutput">
+                        <h3 style="margin-bottom: 16px;">Generated Images</h3>
+                        <div class="images-grid" id="imagesGrid"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Compress Tab -->
+            <div class="tab-content" id="compress-tab">
+                <div class="card">
+                    <h3>Compress PDF</h3>
+                    <p>Reduce PDF file size by downscaling and re-compressing images.</p>
+                    <div class="input-group-row">
+                        <div class="input-group">
+                            <label for="compressDpi">DPI (Resolution)</label>
+                            <input type="number" id="compressDpi" value="72" min="30" max="300" placeholder="e.g. 72">
+                        </div>
+                        <div class="input-group">
+                            <label for="compressQuality">JPEG Quality (0-100)</label>
+                            <input type="number" id="compressQuality" value="70" min="1" max="100" placeholder="e.g. 50">
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" id="compressBtn">Compress PDF</button>
+                </div>
+            </div>
+
+            <!-- Merge Tab -->
+            <div class="tab-content" id="merge-tab">
+                <div class="card">
+                    <h3>Merge PDFs</h3>
+                    <p>Combine multiple PDF files into a single document.</p>
+                    <button class="btn btn-primary" id="mergeBtn">Merge PDFs</button>
+                </div>
+            </div>
+
+            <!-- Split Tab -->
+            <div class="tab-content" id="split-tab">
+                <div class="card">
+                    <h3>Split PDF</h3>
+                    <p>Split a PDF into individual pages.</p>
+                    <button class="btn btn-primary" id="splitBtn">Split PDF</button>
+                </div>
+            </div>
+
+            <!-- Organize Tab -->
+            <div class="tab-content" id="organize-tab">
+                <div class="card">
+                    <h3>Organize Pages</h3>
+                    <p>Insert, delete, or rotate pages in your PDF.</p>
+                    
+                    <div style="margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid var(--border-color);">
+                        <h4 style="margin-bottom: 12px;">Rotate Pages</h4>
+                        <div class="input-group-row">
+                            <div class="input-group">
+                                <label>Pages (e.g. 1, 3-5 or 'all')</label>
+                                <input type="text" id="rotatePages" value="all">
+                            </div>
+                            <div class="input-group">
+                                <label>Rotation</label>
+                                <select id="rotateAngle">
+                                    <option value="90">90° Clockwise</option>
+                                    <option value="180">180°</option>
+                                    <option value="270">90° Counter-Clockwise</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" id="rotateBtn">Rotate Pages</button>
+                    </div>
+
+                    <div style="margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid var(--border-color);">
+                        <h4 style="margin-bottom: 12px;">Delete Pages</h4>
+                        <div class="input-group">
+                            <label>Pages to Delete (e.g. 2, 4-6)</label>
+                            <input type="text" id="deletePages" placeholder="e.g. 2, 5-7">
+                        </div>
+                        <button class="btn btn-primary" id="deleteBtn" style="background: var(--error); border-color: var(--error);">Delete Pages</button>
+                    </div>
+
+                    <div>
+                        <h4 style="margin-bottom: 12px;">Insert Blank Page</h4>
+                        <div class="input-group-row">
+                            <div class="input-group">
+                                <label>Insert After Page</label>
+                                <input type="number" id="insertAfter" value="1" min="0">
+                            </div>
+                            <div class="input-group">
+                                <label>Count</label>
+                                <input type="number" id="insertCount" value="1" min="1">
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" id="insertBtn">Insert Blank Page(s)</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Security Tab -->
+            <div class="tab-content" id="security-tab">
+                <div class="card">
+                    <h3>Security</h3>
+                    <p>Encrypt or decrypt your PDF files.</p>
+                    
+                    <div style="margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid var(--border-color);">
+                        <h4 style="margin-bottom: 12px;">Encrypt PDF</h4>
+                        <div class="input-group">
+                            <label>Password</label>
+                            <input type="password" id="encryptPassword" placeholder="Set a password">
+                        </div>
+                        <button class="btn btn-primary" id="encryptBtn">Encrypt & Download</button>
+                    </div>
+
+                    <div>
+                        <h4 style="margin-bottom: 12px;">Decrypt PDF</h4>
+                        <div class="input-group">
+                            <label>Current Password</label>
+                            <input type="password" id="decryptPassword" placeholder="Enter current password">
+                        </div>
+                        <button class="btn btn-primary" id="decryptBtn">Decrypt & Download</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Edit Tab -->
+            <div class="tab-content" id="edit-tab">
+                <div class="card">
+                    <h3>Edit PDF Content</h3>
+                    <p>Add text or images to your PDF pages.</p>
+                    
+                    <div style="margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid var(--border-color);">
+                        <h4 style="margin-bottom: 12px;">Add Text</h4>
+                        <div class="input-group" style="margin-bottom: 12px;">
+                            <label>Text to Add</label>
+                            <textarea id="editText" rows="2" placeholder="Enter text..."></textarea>
+                        </div>
+                        <div class="input-group-row">
+                            <div class="input-group">
+                                <label>Page</label>
+                                <input type="number" id="editPage" value="1" min="1">
+                            </div>
+                            <div class="input-group">
+                                <label>X Coord</label>
+                                <input type="number" id="editX" value="50">
+                            </div>
+                            <div class="input-group">
+                                <label>Y Coord</label>
+                                <input type="number" id="editY" value="50">
+                            </div>
+                        </div>
+                        <div class="input-group-row">
+                            <div class="input-group">
+                                <label>Font Size</label>
+                                <input type="number" id="editSize" value="12">
+                            </div>
+                            <div class="input-group">
+                                <label>Color (Hex)</label>
+                                <input type="color" id="editColor" value="#000000" style="height: 40px; padding: 2px;">
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" id="addTextBtn">Add Text to Page</button>
+                    </div>
+
+                    <div>
+                        <h4 style="margin-bottom: 12px;">Insert Image</h4>
+                        <div class="upload-area small" id="editImgArea" style="margin-bottom: 12px;">
+                            <div class="upload-icon">🖼️</div>
+                            <p class="primary" id="editImgName">Drop image here</p>
+                        </div>
+                        <input type="file" id="editImgInput" accept="image/*" style="display:none">
+                        <div class="input-group-row">
+                            <div class="input-group">
+                                <label>Page</label>
+                                <input type="number" id="editImgPage" value="1" min="1">
+                            </div>
+                            <div class="input-group">
+                                <label>Width</label>
+                                <input type="number" id="editImgWidth" value="200">
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" id="addImgBtn">Insert Image</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- OCR Tab -->
+            <div class="tab-content" id="ocr-tab">
+                <div class="card">
+                    <h3>OCR (Extract Scanned Text)</h3>
+                    <p>Intelligently extract text. If a page is scanned (image-only), it uses OpenCV preprocessing and Tesseract.js OCR. If the page is native digital text, it extracts it directly.</p>
+                    <button class="btn btn-primary" id="ocrBtn">Run OCR & Extract Text</button>
+                    <div class="output-section" id="ocrOutput">
+                        <div class="output-header">
+                            <h3>OCR Result</h3>
+                            <button class="btn btn-small btn-secondary" id="downloadOcrBtn">📥 Download</button>
+                        </div>
+                        <div class="text-output" id="ocrTextOutput"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Image to PDF Tab -->
+            <div class="tab-content" id="img2pdf-tab">
+                <div class="card">
+                    <h3>Image to PDF</h3>
+                    <p>Convert images (PNG, JPG) into a PDF document.</p>
+                    
+                    <div class="upload-area small" id="imgToPdfArea">
+                        <div class="upload-icon">📷</div>
+                        <p class="primary">Drop images here</p>
+                        <p class="secondary">or click to browse</p>
+                    </div>
+                    <input type="file" id="imgToPdfInput" accept="image/png, image/jpeg, image/jpg" multiple>
+                    
+                    <div class="file-list" id="imgList" style="margin-bottom: 20px;"></div>
+                    
+                    <button class="btn btn-primary" id="imgToPdfBtn">Convert to PDF</button>
+                </div>
+            </div>
+
+            <!-- Number Pages Tab -->
+            <div class="tab-content" id="number-tab">
+                <div class="card">
+                    <h3>Add Page Numbers</h3>
+                    <p>Add sequential page numbers to your document.</p>
+                    <div class="input-group-row">
+                         <div class="input-group">
+                            <label>Position</label>
+                            <select id="numberPosition" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color);">
+                                <option value="bottom-center">Bottom Center</option>
+                                <option value="bottom-right">Bottom Right</option>
+                                <option value="top-right">Top Right</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" id="numberBtn">Add Page Numbers</button>
+                </div>
+            </div>
+
+            <!-- Sign Tab -->
+            <div class="tab-content" id="sign-tab">
+                <div class="card">
+                    <h3>Sign PDF</h3>
+                    <p>Overlay a signature image onto your PDF.</p>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="margin-bottom: 10px; font-size: 14px; color: var(--text-secondary);">1. Select Signature Image</h4>
+                        <div class="upload-area small" id="signArea">
+                             <div class="upload-icon">✒️</div>
+                             <p class="primary" id="signFileName">Drop signature (PNG/JPG) here</p>
+                        </div>
+                        <input type="file" id="signInput" accept="image/png, image/jpeg">
+                    </div>
+
+                    <h4 style="margin-bottom: 10px; font-size: 14px; color: var(--text-secondary);">2. Position & Size</h4>
+                    <div class="input-group-row">
+                        <div class="input-group">
+                            <label>Page Number</label>
+                            <input type="number" id="signPage" value="1" min="1">
+                        </div>
+                        <div class="input-group">
+                            <label>Position</label>
+                            <select id="signPosition" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color);">
+                                <option value="bottom-right">Bottom Right</option>
+                                <option value="bottom-left">Bottom Left</option>
+                                <option value="custom">Custom (X, Y)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="input-group-row hidden" id="customSignCoords">
+                        <div class="input-group">
+                            <label>X (pts)</label>
+                            <input type="number" id="signX" value="100">
+                        </div>
+                        <div class="input-group">
+                            <label>Y (pts)</label>
+                            <input type="number" id="signY" value="100">
+                        </div>
+                    </div>
+                    <div class="input-group-row">
+                         <div class="input-group">
+                            <label>Width (pts)</label>
+                            <input type="number" id="signWidth" value="150">
+                        </div>
+                    </div>
+                    
+                    <button class="btn btn-primary" id="signBtn">Sign PDF</button>
+                </div>
+            </div>
+
+            <!-- Watermark Tab -->
+            <div class="tab-content" id="watermark-tab">
+                <div class="card">
+                    <h3>Add Text Watermark</h3>
+                    <p>Add a custom text watermark to all pages of your PDF.</p>
+                    <div class="input-group" style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-size: 14px; color: var(--text-secondary);">Watermark Text</label>
+                        <input type="text" id="watermarkText" value="CONFIDENTIAL" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color);">
+                    </div>
+                    <div class="grid-2" style="margin-bottom: 20px;">
+                        <div class="input-group">
+                            <label style="display: block; margin-bottom: 8px; font-size: 14px; color: var(--text-secondary);">Font Size</label>
+                            <input type="number" id="watermarkSize" value="50" min="10" max="200" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color);">
+                        </div>
+                        <div class="input-group">
+                            <label style="display: block; margin-bottom: 8px; font-size: 14px; color: var(--text-secondary);">Opacity (0-1)</label>
+                            <input type="number" id="watermarkOpacity" value="0.3" min="0.1" max="1" step="0.1" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color);">
+                        </div>
+                    </div>
+                    <div class="input-group" style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-size: 14px; color: var(--text-secondary);">Rotation (degrees)</label>
+                        <input type="number" id="watermarkRotation" value="45" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color);">
+                    </div>
+                    <button class="btn btn-primary" id="watermarkBtn">Add Watermark</button>
+                </div>
+            </div>
+
+            <!-- Metadata Tab -->
+            <div class="tab-content" id="metadata-tab">
+                <div class="card">
+                    <h3>PDF Information</h3>
+                    <p>View metadata and information about your PDF file.</p>
+                    <button class="btn btn-primary" id="metadataBtn">Get Info</button>
+                    <div class="output-section" id="metadataOutput">
+                        <div class="metadata-grid" id="metadataGrid"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Single JavaScript file -->
+    <script src="script.js"></script>
+</body>
+</html>
